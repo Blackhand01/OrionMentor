@@ -1,0 +1,57 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# --- Virtual environments ---
+venv/
+venv-*/
+.venv/
+.envrc
+
+# --- Packages / build ---
+dist/
+build/
+*.log
+pip-wheel-metadata/
+*.whl
+
+# --- Jupyter / VSCode ---
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+
+# --- Env / secrets ---
+.env
+.env.*
+!env.example   # mantieni solo il template
+*.pem
+*.key
+
+# --- Cache ---
+.mypy_cache/
+.pytest_cache/
+__pypackages__/
+.cache/
+ruff_cache/
+
+# --- Gradio / Flask runtime ---
+*.db
+*.sqlite3
+instance/
+.orionmentor_cache/
+
+

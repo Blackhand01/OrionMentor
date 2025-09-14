@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>OrionMentor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script>marked.setOptions({ breaks:true, gfm:true });</script>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body class="bg-space">
+  <div id="particles"></div>
+  <header class="hero">
+    <div class="logo">✦ OrionMentor</div>
+    <div class="tagline">Learn with a Cosmic Guide</div>
+  </header>
+
+  <main class="container">
+    <section class="ask-card">
+      <input id="topic" class="ask-input" placeholder="Spiega agentic RAG con schema e mini-esercizio"/>
+      <button id="launch" class="cta">Launch 🚀</button>
+    </section>
+
+    <section id="deck" class="deck hidden">
+      <div class="tab">
+        <button data-t="explanation" class="active">📖 Explanation</button>
+        <button data-t="steps">🪜 Steps</button>
+        <button data-t="exercise">🧩 Exercise</button>
+        <button data-t="sources">🌐 Sources</button>
+      </div>
+
+      <!-- EXPLANATION: wrapper con toolbar + corpo + sidebar meta -->
+      <div id="panel-explanation" class="panel">
+        <div class="ex-toolbar">
+          <div class="ex-title">Explanation</div>
+          <div class="ex-actions">
+            <button id="btn-copy" class="btn-ghost">Copy</button>
+            <button id="btn-download" class="btn-ghost">Download .md</button>
+            <button id="btn-toc" class="btn-ghost">TOC</button>
+          </div>
+        </div>
+
+        <div class="ex-layout">
+          <aside class="ex-meta">
+            <div class="meta-item">
+              <div class="meta-label">Provider</div>
+              <div id="meta-provider" class="meta-value">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Route</div>
+              <div id="meta-route" class="meta-value">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Latency</div>
+              <div id="meta-latency" class="meta-value">—</div>
+            </div>
+            <div class="meta-sep"></div>
+            <div id="toc" class="toc hidden"></div>
+          </aside>
+
+          <article id="ex-markdown" class="prose"></article>
+        </div>
+      </div>
+
+      <div id="panel-steps" class="panel hidden"></div>
+      <div id="panel-exercise" class="panel hidden"></div>
+      <div id="panel-sources" class="panel hidden"></div>
+    </section>
+    <div style="margin-top:18px; text-align:center">
+      <a class="btn-ghost" href="/dashboard" style="font-size:18px; text-decoration:none; margin:8px 0;">📊 Dashboard</a>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
+  <script>
+  const topic = document.getElementById('topic');
+  const launch = document.getElementById('launch');
+  const deck = document.getElementById('deck');
+
+  function showTab(t){
+    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('panel-'+t).classList.remove('hidden');
+    document.querySelectorAll('.tab button').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.tab button[data-t="${t}"]`).classList.add('active');
+  }
+  document.querySelectorAll('.tab button').forEach(b => b.onclick = () => showTab(b.dataset.t));
+
+  // --- Explanation rendering helpers ---
+  const exEl = document.getElementById('ex-markdown');
+  const metaProvider = document.getElementById('meta-provider');
+  const metaRoute = document.getElementById('meta-route');
+  const metaLatency = document.getElementById('meta-latency');
+  const tocEl = document.getElementById('toc');
+  const btnCopy = document.getElementById('btn-copy');
+  const btnDownload = document.getElementById('btn-download');
+  const btnToc = document.getElementById('btn-toc');
+
+  function renderMarkdownSafe(md){
+    // trasformazioni leggere: blocchi :::note → callout
+    md = md.replace(/^:::(\w+)\n([\s\S]*?)\n:::/gm, (_, kind, body) => {
+      const k = kind.toLowerCase();
+      const cls = k === 'warn' ? 'warn' : (k === 'ok' ? 'ok' : '');
+      return `<div class="callout ${cls}">${body}</div>`;
+    });
+    const html = marked.parse(md || "");
+    // sanitize
+    const clean = DOMPurify.sanitize(html, {USE_PROFILES: {html: true}});
+    exEl.innerHTML = clean;
+
+    // syntax highlight (defer to HLJS if present)
+    document.querySelectorAll('#ex-markdown pre code').forEach(block => {
+      if (window.hljs) hljs.highlightElement(block);
+    });
+
+    // build TOC from h2/h3
+    const headers = exEl.querySelectorAll('h2, h3');
+    const items = [];
+    headers.forEach((h,i)=>{
+      const id = h.id || ('sec-'+i);
+      h.id = id;
+      const pad = h.tagName === 'H3' ? '— ' : '';
+      items.push(`<a href="#${id}">${pad}${h.textContent}</a>`);
+    });
+    tocEl.innerHTML = items.join('');
+  }
+
+  btnCopy.onclick = async () => {
+    const md = exEl.innerText; // copy visible text
+    try { await navigator.clipboard.writeText(md); btnCopy.textContent = 'Copied ✓'; }
+    catch { btnCopy.textContent = 'Copy failed'; }
+    setTimeout(()=> btnCopy.textContent = 'Copy', 1200);
+  };
+
+  btnDownload.onclick = () => {
+    const blob = new Blob([exEl.innerText], {type:'text/markdown;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'orionmentor_explanation.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  btnToc.onclick = () => {
+    tocEl.classList.toggle('hidden');
+    btnToc.textContent = tocEl.classList.contains('hidden') ? 'TOC' : 'Hide TOC';
+  };
+
+  launch.onclick = async () => {
+    deck.classList.remove('hidden');
+    document.body.classList.add('launching');
+
+    const r = await fetch('/api/mentor',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic: topic.value})
+    });
+
+    const j = await r.json();
+    document.body.classList.remove('launching');
+
+    // --- Explanation: preferisci Markdown se presente ---
+    const exp = j.explanation || '—';
+    renderMarkdownSafe(exp);
+
+    // Meta (se _meta presente)
+    const meta = j._meta || {};
+    metaProvider.textContent = meta.provider_tier || '—';
+    metaRoute.textContent = meta.route_reason || '—';
+    metaLatency.textContent = meta.latency_ms ? `${meta.latency_ms} ms` : '—';
+
+    // Steps / Exercise / Sources come prima
+    document.getElementById('panel-steps').innerHTML =
+      (j.steps||[]).map((s,i)=>`<div class="step"><span>${i+1}</span>${s}</div>`).join('');
+
+    const ex = j.exercise || {};
+    document.getElementById('panel-exercise').innerHTML =
+      ex.question ? `<b>Q:</b> ${ex.question}${ex.expected_output?`<pre><code>${ex.expected_output}</code></pre>`:''}` : '—';
+
+    document.getElementById('panel-sources').innerHTML =
+      (j.sources||[]).map(s=>`<span class="pill">${s}</span>`).join('');
+
+    showTab('explanation');
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+  </script>
+</body>
+</html>
